@@ -24,7 +24,7 @@ def get_tensor_from_array(array: np.array):
 
     tensor = torch.Tensor(array)
     if torch.cuda.is_available():
-        tensor = tensor.cuda()
+        tensor = tensor.cuda(1)
     return tensor
 
 

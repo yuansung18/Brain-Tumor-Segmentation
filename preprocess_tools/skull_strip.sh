@@ -8,7 +8,7 @@ mkdir -p "$result_dir/image"
 mkdir -p "$result_dir/mask"
 
 data_dir=$3
-for filepath in $3/image/*; do
+for filepath in $3/*; do
 	filename=$(basename "$filepath" "")	
 	echo $filename
 	$bse_dir -i $filepath \

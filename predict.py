@@ -72,7 +72,7 @@ if __name__ == '__main__':
     os.environ['EXP_ID'] = exp_id
 
     data_provider_hub = DataProviderHub()
-    get_data_provider, data_provider_parameters = data_provider_hub[args.data_provider_id]
+    get_data_provider, data_provider_parameters = data_provider_hub[data_id]
     data_provider = get_data_provider(data_provider_parameters)
 
     auxiliary_data_providers = []
@@ -88,8 +88,9 @@ if __name__ == '__main__':
         data_format=data_provider.data_format,
         auxiliary_data_formats=auxiliary_data_formats,
     )
-
+    
     trainer = PytorchTrainer(
+        device_id=1,
         model=model,
         checkpoint_dir=args.checkpoint_dir,
         dataset_size=len(data_provider),

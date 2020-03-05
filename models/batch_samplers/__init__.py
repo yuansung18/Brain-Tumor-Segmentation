@@ -12,4 +12,5 @@ BatchSamplerHub = {
     'uniform_patch3d': UniformPatch3DBatchSampler,
     'center_patch_96': partial(CenterPatch3DBatchSampler, patch_size=(96, 96, 96)),
     'center_patch_structseg': partial(CenterPatch3DBatchSampler, patch_size=(152, 128, 128)),
+    'center_patch_140': partial(CenterPatch3DBatchSampler, patch_size=(140, 140, 140)),
 }

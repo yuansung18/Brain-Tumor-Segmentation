@@ -7,7 +7,7 @@ name = "pypi"
 numpy = "*"
 nibabel = "*"
 tqdm = "*"
-"flake8" = "*"
+flake8 = "*"
 python-dotenv = "*"
 matplotlib = "*"
 sklearn = "*"
@@ -21,6 +21,7 @@ simpleitk = "*"
 torchvision = "*"
 pandas = "*"
 pynrrd = "*"
+configobj = "*"
 
 [dev-packages]
 

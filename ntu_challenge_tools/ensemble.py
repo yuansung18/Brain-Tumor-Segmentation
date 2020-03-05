@@ -5,7 +5,7 @@ from sys import argv
 
 import nibabel as nib
 import numpy as np
-from preprocess_tools.image_utils import save_array_to_nii
+from image_utils import save_array_to_nii
 from tqdm import tqdm
 
 

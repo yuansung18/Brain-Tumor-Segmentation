@@ -37,7 +37,7 @@ ModelHub = {
         ),
         {
             **DEFAULT_TRAINING_PARAM,
-            'batch_size': 20,
+            'batch_size': 7,
         },
     ),
     'u_net_positional': (
@@ -131,11 +131,11 @@ ModelHub = {
     'v_net_center_patch': (
         partial(
             VNet,
-            batch_sampler_id='center_patch_96',
+            batch_sampler_id='center_patch_140',
         ),
         {
             **DEFAULT_TRAINING_PARAM,
-            'batch_size': 15,
+            'batch_size': 2,
         },
     ),
     'pspnet_2d_resnet34': (

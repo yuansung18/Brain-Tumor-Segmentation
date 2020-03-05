@@ -30,6 +30,7 @@ class DataProviderBase(ABC):
     def _get_data_generator(self, data_ids, augmentation=False, async_load=False, **kwargs):
         data_generator = self._get_raw_data_generator(data_ids, **kwargs)
         data_generator = NormalizedDataGeneratorWrapper(data_generator)
+        # print(augmentation)
         if augmentation:
             data_generator = AugmentedDataGeneratorWrapper(data_generator)
         if async_load:

@@ -57,14 +57,14 @@ def add_general_args(parser):
         '--comet_project',
         type=str,
         help='comet ml project name',
-        default='braintumorbaba',
+        default='braintumor',
     )
     parser.add_argument(
         '-cow',
         '--comet_workspace',
         type=str,
         help='comet ml workspace name',
-        default='raywu0123',
+        default='yuansung18',
     )
     parser.add_argument(
         '-async'

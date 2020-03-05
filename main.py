@@ -66,7 +66,8 @@ def main():
     if args.checkpoint_dir is not None:
         folder_name = os.path.basename(os.path.normpath(args.checkpoint_dir))
         model_id, data_provider_id, time_stamp = parse_exp_id(folder_name)
-        args.model_id, args.data_provider_id = model_id, data_provider_id
+        args.model_id = model_id
+        args.data_provider_id = data_provider_id
 
     time_stamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     os.environ['EXP_ID'] = \
@@ -77,6 +78,7 @@ def main():
 
     data_provider_hub = DataProviderHub()
     get_data_provider, data_provider_parameters = data_provider_hub[args.data_provider_id]
+    # print(data_provider_parameters)
     data_provider = get_data_provider(data_provider_parameters)
 
     auxiliary_data_providers = []
@@ -88,6 +90,7 @@ def main():
         auxiliary_data_formats.append(aux_data_provider.data_format)
 
     get_model, fit_hyper_parameters = ModelHub[args.model_id]
+    # print(fit_hyper_parameters)
     model = get_model(
         data_format=data_provider.data_format,
         loss_function_id=args.loss_function_id,
@@ -113,6 +116,7 @@ def main():
         optimizer=optimizer,
         scheduler=scheduler,
     )
+    # print(args)
     flow(
         data_provider=data_provider,
         auxiliary_data_providers=auxiliary_data_providers,

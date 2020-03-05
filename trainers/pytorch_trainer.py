@@ -7,6 +7,7 @@ from math import ceil
 
 import comet_ml
 import torch
+import torch.nn as nn
 from dotenv import load_dotenv
 import numpy as np
 from tqdm import tqdm
@@ -27,6 +28,7 @@ class PytorchTrainer(TrainerBase, ABC):
             self,
             model: PytorchModelBase,
             dataset_size: int,
+            device_id: int = 0,
             optimizer=None,
             scheduler=None,
             comet_experiment: comet_ml.Experiment = None,
@@ -51,8 +53,12 @@ class PytorchTrainer(TrainerBase, ABC):
         self.comet_experiment = comet_experiment
 
         self.model = model
+        self.device_id = device_id
+        # if torch.cuda.device_count() > 1:
+        #     print(f'GPU count: {torch.cuda.device_count()}')
+        #     self.model = nn.DataParallel(self.model)
         if torch.cuda.is_available():
-            self.model.cuda()
+            self.model.cuda(device_id)
         print(f'Total parameters: {self.count_parameters()}')
         if checkpoint_dir is not None:
             self.load(checkpoint_dir)
@@ -74,7 +80,7 @@ class PytorchTrainer(TrainerBase, ABC):
         print(f'model saved to {self.result_path}')
 
     def load(self, file_path):
-        checkpoint = torch.load(os.path.join(file_path, 'checkpoint.pth.tar'))
+        checkpoint = torch.load(os.path.join(file_path, 'checkpoint.pth.tar'), map_location=f'cuda:{self.device_id}')
         self.model.load_state_dict(checkpoint['state_dict'])
         if self.opt is not None:
             self.opt.load_state_dict(checkpoint['optimizer'])
@@ -106,7 +112,7 @@ class PytorchTrainer(TrainerBase, ABC):
             print('Profiling...')
             self.profile.enable()
 
-        for self.i_step in range(self.i_step, self.i_step + step_num):
+        for self.i_step in tqdm(range(self.i_step, self.i_step + step_num)):
             log_dict, aux_log_dicts = self.model.fit_generator(
                 training_data_generator,
                 auxiliary_data_generators,

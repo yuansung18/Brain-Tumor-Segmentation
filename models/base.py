@@ -75,7 +75,7 @@ class PytorchModelBase(ModelBase, nn.Module):
         self.train()
         all_data_generators = [training_data_generator] + aux_data_generators
         all_data = [
-            data_generator(batch_size=1)
+            data_generator(batch_size=batch_size)
             for data_generator in all_data_generators
         ]
         # batch_size here stands for number of volumes
