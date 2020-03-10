@@ -223,9 +223,10 @@ class AttentionUpConv(nn.Module):
 
     def forward(self, x, x_down):
         x = self.conv_transpose(x)
-        diff_x = x_down.size()[2] - x.size()[2]
-        diff_y = x_down.size()[3] - x.size()[3]
-        x = F.pad(x, [0, diff_x, 0, diff_y])
+        diff_z = x_down.size()[2] - x.size()[2]
+        diff_x = x_down.size()[3] - x.size()[3]
+        diff_y = x_down.size()[4] - x.size()[4]
+        x = F.pad(x, [0, diff_x, 0, diff_y, 0, diff_z])
 
         q = self.query_conv(x)
         k = self.key_conv(x_down)
