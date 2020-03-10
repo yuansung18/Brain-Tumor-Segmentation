@@ -111,44 +111,54 @@ class PytorchTrainer(TrainerBase, ABC):
         if self.profile is not None:
             print('Profiling...')
             self.profile.enable()
+        loss_min = 1e9
+        for epoch in range(epoch_num):
+            loss_sum = 0
 
-        for self.i_step in tqdm(range(self.i_step, self.i_step + step_num)):
-            log_dict, aux_log_dicts = self.model.fit_generator(
-                training_data_generator,
-                auxiliary_data_generators,
-                self.opt,
-                batch_size=batch_size,
-            )
-            self.scheduler.step()
-            # fits on one single volume, one step = one volume
+            for data in tqdm(range(self.dataset_size)):
+                self.i_step += 1
 
-            if self.i_step % verbose_step_num == 0:
-                print(f'epoch: {self.i_step / self.dataset_size:.2f}', log_dict)
-                self.save()
-                metrics = self._validate(
-                    validation_data_generator, metric, batch_size=batch_size
+                log_dict, aux_log_dicts = self.model.fit_generator(
+                    training_data_generator,
+                    auxiliary_data_generators,
+                    self.opt,
+                    batch_size=batch_size,
                 )
-                if self.comet_experiment is not None:
-                    self.comet_experiment.log_metrics(
-                        log_dict, prefix='training', step=self.i_step
-                    )
-                    for log, name in zip(aux_log_dicts, auxiliary_data_provider_ids):
-                        self.comet_experiment.log_metrics(
-                            log, prefix=f'aux_{name}', step=self.i_step
-                        )
-                    self.comet_experiment.log_metrics(
-                        metrics, prefix='validation', step=self.i_step
-                    )
+                loss_sum += log_dict['soft_dice']
+                self.scheduler.step()
+                # fits on one single volume, one step = one volume
 
-            if self.i_step == self.profile_steps and self.profile is not None:
-                self.profile.disable()
-                with open(self.profile_export_file_path, 'w') as f_out:
-                    with redirect_stdout(f_out):
-                        self.profile.print_stats(sort='cumtime')
-                print(f"Complete profiling in {self.profile_epochs} epochs.")
-                print(f'Exported profiling stats to {self.profile_export_file_path}')
-                print("Exit by profiler")
-                sys.exit(0)
+                if self.i_step % verbose_step_num == 0:
+                    print(f'epoch: {self.i_step / self.dataset_size:.2f}', log_dict)
+                    self.save()
+                    metrics = self._validate(
+                        validation_data_generator, metric, batch_size=batch_size
+                    )
+                    if self.comet_experiment is not None:
+                        self.comet_experiment.log_metrics(
+                            log_dict, prefix='training', step=self.i_step
+                        )
+                        for log, name in zip(aux_log_dicts, auxiliary_data_provider_ids):
+                            self.comet_experiment.log_metrics(
+                                log, prefix=f'aux_{name}', step=self.i_step
+                            )
+                        self.comet_experiment.log_metrics(
+                            metrics, prefix='validation', step=self.i_step
+                        )
+
+                if self.i_step == self.profile_steps and self.profile is not None:
+                    self.profile.disable()
+                    with open(self.profile_export_file_path, 'w') as f_out:
+                        with redirect_stdout(f_out):
+                            self.profile.print_stats(sort='cumtime')
+                    print(f"Complete profiling in {self.profile_epochs} epochs.")
+                    print(f'Exported profiling stats to {self.profile_export_file_path}')
+                    print("Exit by profiler")
+                    sys.exit(0)
+            print(f'Dice loss: {loss_sum}')
+            if loss_sum < loss_min:
+                self.save()
+            
 
     def predict_on_generator(
             self,
