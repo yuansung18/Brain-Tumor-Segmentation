@@ -6,7 +6,7 @@ from .base import PytorchModelBase
 from .utils import get_tensor_from_array, normalize_batch_image
 
 
-class UNet(PytorchModelBase):
+class R2UNet(PytorchModelBase):
 
     def __init__(
         self,
@@ -14,7 +14,7 @@ class UNet(PytorchModelBase):
         batch_sampler_id: str = 'three_dim',
         floor_num: int = 4,
         kernel_size: int = 3,
-        channel_num: int = 64,
+        channel_num: int = 16,
         conv_times: int = 2,
         use_position=False,
         dropout_rate: int = 0.,
@@ -26,7 +26,7 @@ class UNet(PytorchModelBase):
         self.kernel_size = kernel_size
         self.conv_times = conv_times
         self.use_position = use_position
-        super(UNet, self).__init__(
+        super(R2UNet, self).__init__(
             batch_sampler_id=batch_sampler_id,
             data_format=data_format,
             forward_outcome_channels=channel_num,
@@ -111,7 +111,7 @@ class UNet(PytorchModelBase):
                     self.conv_times,
                     self.dropout_rate,
                 ),
-                nn.Conv2d(input_channels, class_num, kernel_size=1)
+                nn.Conv3d(input_channels, class_num, kernel_size=1)
             )
             for class_num in class_nums
         ])
@@ -126,14 +126,14 @@ class ConvNTimes(nn.Module):
         self.norms = nn.ModuleList()
         self.conv_times = conv_times
 
-        self.dropout = nn.Dropout2d(p=dropout_rate)
+        self.dropout = nn.Dropout3d(p=dropout_rate)
 
-        self.in_conv = nn.Conv2d(in_ch, out_ch, kernel_size, padding=kernel_size // 2)
+        self.in_conv = nn.Conv3d(in_ch, out_ch, kernel_size, padding=kernel_size // 2)
         for _ in range(conv_times - 1):
-            conv = nn.Conv2d(out_ch, out_ch, kernel_size, padding=kernel_size // 2)
+            conv = nn.Conv3d(out_ch, out_ch, kernel_size, padding=kernel_size // 2)
             self.convs.append(conv)
         for _ in range(conv_times):
-            norm = nn.InstanceNorm2d(out_ch)
+            norm = nn.InstanceNorm3d(out_ch)
             self.norms.append(norm)
 
     def forward(self, inp):
@@ -156,7 +156,7 @@ class DownConv(nn.Module):
         out_ch = in_ch * 2
         super(DownConv, self).__init__()
         self.mpconv = nn.Sequential(
-            nn.MaxPool2d(2),
+            nn.MaxPool3d(2),
             ConvNTimes(in_ch, out_ch, kernel_size, conv_times, dropout_rate)
         )
 
@@ -170,7 +170,7 @@ class UpConv(nn.Module):
     def __init__(self, in_ch, kernel_size, conv_times, dropout_rate):
         super(UpConv, self).__init__()
         out_ch = in_ch // 2
-        self.conv_transpose = nn.ConvTranspose2d(
+        self.conv_transpose = nn.ConvTranspose3d(
             in_ch,
             out_ch,
             kernel_size,
@@ -181,9 +181,10 @@ class UpConv(nn.Module):
 
     def forward(self, x_down, x_up):
         x_down = self.conv_transpose(x_down)
-        diff_x = x_up.size()[2] - x_down.size()[2]
-        diff_y = x_up.size()[3] - x_down.size()[3]
-        x_down = F.pad(x_down, [0, diff_x, 0, diff_y])
+        diff_z = x_up.size()[2] - x_down.size()[2]
+        diff_x = x_up.size()[3] - x_down.size()[3]
+        diff_y = x_up.size()[4] - x_down.size()[4]
+        x_down = F.pad(x_down, [0, diff_x, 0, diff_y, 0, diff_z])
         x = torch.cat([x_down, x_up], dim=1)
         x = self.conv(x)
         return x
@@ -194,24 +195,24 @@ class AttentionUpConv(nn.Module):
     def __init__(self, in_ch, kernel_size, conv_times, dropout_rate):
         super().__init__()
         out_ch = in_ch // 2
-        self.conv_transpose = nn.ConvTranspose2d(
+        self.conv_transpose = nn.ConvTranspose3d(
             in_ch,
             out_ch,
             kernel_size,
             padding=kernel_size // 2,
             stride=2,
         )
-        self.query_conv = nn.Conv2d(
+        self.query_conv = nn.Conv3d(
             in_channels=out_ch,
             out_channels=out_ch,
             kernel_size=1,
         )
-        self.key_conv = nn.Conv2d(
+        self.key_conv = nn.Conv3d(
             in_channels=out_ch,
             out_channels=out_ch,
             kernel_size=1,
         )
-        self.attention_conv = nn.Conv2d(
+        self.attention_conv = nn.Conv3d(
             in_channels=out_ch,
             out_channels=1,
             kernel_size=1,
@@ -244,21 +245,21 @@ class SelfAttention(nn.Module):
     def __init__(self, in_dim):
         super().__init__()
         self.chanel_in = in_dim
-        self.query_conv = nn.Conv2d(in_channels=in_dim, out_channels=in_dim // 8, kernel_size=1)
-        self.key_conv = nn.Conv2d(in_channels=in_dim, out_channels=in_dim // 8, kernel_size=1)
-        self.value_conv = nn.Conv2d(in_channels=in_dim, out_channels=in_dim, kernel_size=1)
+        self.query_conv = nn.Conv3d(in_channels=in_dim, out_channels=in_dim // 8, kernel_size=1)
+        self.key_conv = nn.Conv3d(in_channels=in_dim, out_channels=in_dim // 8, kernel_size=1)
+        self.value_conv = nn.Conv3d(in_channels=in_dim, out_channels=in_dim, kernel_size=1)
         self.gamma = nn.Parameter(torch.zeros(1))
         self.softmax = nn.Softmax(dim=-1)
 
     def forward(self, x):
         """
             inputs :
-                x : input feature maps( B X C X W X H)
+                x : input feature maps( B X C X D X W X H)
             returns :
                 out : self attention value + input feature
                 attention: B X N X N (N is Width*Height)
         """
-        m_batchsize, C, width, height = x.size()
+        m_batchsize, C, depth, width, height = x.size()
         proj_query = self.query_conv(x).view(
             m_batchsize,
             -1,
@@ -270,7 +271,7 @@ class SelfAttention(nn.Module):
         proj_value = self.value_conv(x).view(m_batchsize, -1, width * height)  # B X C X N
 
         out = torch.bmm(proj_value, attention.permute(0, 2, 1))
-        out = out.view(m_batchsize, C, width, height)
+        out = out.view(m_batchsize, C, depth, width, height)
 
         out = self.gamma * out + x
         return out
