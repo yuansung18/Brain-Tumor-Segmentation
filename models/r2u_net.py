@@ -62,15 +62,14 @@ class R2UNet(PytorchModelBase):
             self.up_layers.append(u)
 
     def forward_head(self, inp, data_idx):
-        inp, pos = inp['slice'], inp['position']
-        x = normalize_batch_image(inp)
-        x = get_tensor_from_array(x)
+        # inp, pos = inp['slice'], inp['position']
+        x = get_tensor_from_array(inp)
 
-        if self.use_position:
-            pos = get_tensor_from_array(pos)
-            pos = pos.view(pos.shape[0], 1, 1, 1)
-            pos = pos.expand(-1, 1, x.shape[-2], x.shape[-1])
-            x = torch.cat([x, pos], dim=1)
+        # if self.use_position:
+        #     pos = get_tensor_from_array(pos)
+        #     pos = pos.view(pos.shape[0], 1, 1, 1)
+        #     pos = pos.expand(-1, 1, x.shape[-2], x.shape[-1])
+        #     x = torch.cat([x, pos], dim=1)
 
         x = self.heads[data_idx](x)
         return x
@@ -91,28 +90,17 @@ class R2UNet(PytorchModelBase):
         if self.use_position:
             input_channels = [chn + 1 for chn in input_channels]
         return nn.ModuleList([
-            ConvNTimes(
+            RRCNN_block(
                 input_channel,
                 output_channel,
-                self.kernel_size,
-                self.conv_times,
-                self.dropout_rate,
+                kernel_size= self.kernel_size,
             )
             for input_channel in input_channels
         ])
 
     def build_tails(self, input_channels, class_nums):
         return nn.ModuleList([
-            nn.Sequential(
-                ConvNTimes(
-                    input_channels,
-                    input_channels,
-                    self.kernel_size,
-                    self.conv_times,
-                    self.dropout_rate,
-                ),
-                nn.Conv3d(input_channels, class_num, kernel_size=1)
-            )
+            nn.Conv3d(input_channels, class_num, kernel_size=1)
             for class_num in class_nums
         ])
 
@@ -149,6 +137,39 @@ class ConvNTimes(nn.Module):
         x = (x + inp) / 2
         return x
 
+class RCNN_block(nn.Module):
+    def __init__(self, ch_out, kernel_size, t=2):
+        super(RCNN_block, self).__init__()
+        self.t = t
+        self.conv = nn.Sequential(
+            nn.Conv3d(ch_out, ch_out, kernel_size=kernel_size, stride=1, padding=kernel_size//2, bias=True),
+            nn.BatchNorm3d(ch_out),
+            nn.ReLU(inplace=True)
+        )
+
+    def forward(self,x):
+        for i in range(self.t):
+
+            if i==0:
+                x1 = self.conv(x)
+            
+            x1 = self.conv(x+x1)
+
+        return x1
+        
+class RRCNN_block(nn.Module):
+    def __init__(self, ch_in, ch_out, kernel_size, t=2):
+        super(RRCNN_block, self).__init__()
+        self.RCNN = nn.Sequential(
+            RCNN_block(ch_out, kernel_size=kernel_size, t=t),
+            RCNN_block(ch_out, kernel_size=kernel_size, t=t)
+        )
+        self.Conv_1x1 = nn.Conv3d(ch_in, ch_out, kernel_size=1, stride=1, padding=0)
+
+    def forward(self, x):
+        x = self.Conv_1x1(x)
+        x1 = self.RCNN(x)
+        return x+x1
 
 class DownConv(nn.Module):
 
@@ -156,8 +177,10 @@ class DownConv(nn.Module):
         out_ch = in_ch * 2
         super(DownConv, self).__init__()
         self.mpconv = nn.Sequential(
-            nn.MaxPool3d(2),
-            ConvNTimes(in_ch, out_ch, kernel_size, conv_times, dropout_rate)
+            nn.Conv3d(in_ch, in_ch, kernel_size=kernel_size, stride=2),
+            nn.BatchNorm3d(in_ch),
+            nn.ReLU(inplace=True),
+            RRCNN_block(in_ch, out_ch, kernel_size=kernel_size)
         )
 
     def forward(self, x):
@@ -170,22 +193,31 @@ class UpConv(nn.Module):
     def __init__(self, in_ch, kernel_size, conv_times, dropout_rate):
         super(UpConv, self).__init__()
         out_ch = in_ch // 2
-        self.conv_transpose = nn.ConvTranspose3d(
-            in_ch,
-            out_ch,
-            kernel_size,
-            padding=kernel_size // 2,
-            stride=2,
-        )
-        self.conv = ConvNTimes(in_ch, out_ch, kernel_size, conv_times, dropout_rate)
+        self.conv_transpose = nn.ConvTranspose3d(in_ch, in_ch, kernel_size=kernel_size, stride=2)
+        self.batch_norm = nn.BatchNorm3d(in_ch)
+        self.conv = RRCNN_block(in_ch, out_ch, kernel_size=kernel_size)
 
     def forward(self, x_down, x_up):
         x_down = self.conv_transpose(x_down)
-        diff_z = x_up.size()[2] - x_down.size()[2]
-        diff_x = x_up.size()[3] - x_down.size()[3]
-        diff_y = x_up.size()[4] - x_down.size()[4]
-        x_down = F.pad(x_down, [0, diff_x, 0, diff_y, 0, diff_z])
-        x = torch.cat([x_down, x_up], dim=1)
+        x_down = self.batch_norm(x_down)
+        x_down = F.relu(x_down)
+        if x_down.shape != x_up.shape:
+            # this case will only happen when
+            # x1 [N, C, D-1, H-1, W-1]
+            # x2 [N, C, D,   H,   W  ]
+            p_d = x_up.shape[2] - x_down.shape[2]
+            p_h = x_up.shape[3] - x_down.shape[3]
+            p_w = x_up.shape[4] - x_down.shape[4]
+            pad = nn.ConstantPad3d((0, p_w, 0, p_h, 0, p_d), 0)
+            x_down = pad(x_down)
+
+        # x = torch.cat((x1, x2), 1)
+        x = x_down + x_up
+        # diff_z = x_up.size()[2] - x_down.size()[2]
+        # diff_x = x_up.size()[3] - x_down.size()[3]
+        # diff_y = x_up.size()[4] - x_down.size()[4]
+        # x_down = F.pad(x_down, [0, diff_x, 0, diff_y, 0, diff_z])
+        # x = torch.cat([x_down, x_up], dim=1)
         x = self.conv(x)
         return x
 
