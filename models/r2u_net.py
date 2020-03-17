@@ -177,7 +177,7 @@ class DownConv(nn.Module):
         out_ch = in_ch * 2
         super(DownConv, self).__init__()
         self.mpconv = nn.Sequential(
-            nn.Conv3d(in_ch, in_ch, kernel_size=kernel_size, stride=2),
+            nn.Conv3d(in_ch, in_ch, kernel_size=kernel_size, padding=kernel_size//2, stride=2),
             nn.BatchNorm3d(in_ch),
             nn.ReLU(inplace=True),
             RRCNN_block(in_ch, out_ch, kernel_size=kernel_size)
@@ -193,14 +193,15 @@ class UpConv(nn.Module):
     def __init__(self, in_ch, kernel_size, conv_times, dropout_rate):
         super(UpConv, self).__init__()
         out_ch = in_ch // 2
-        self.conv_transpose = nn.ConvTranspose3d(in_ch, in_ch, kernel_size=kernel_size, stride=2)
-        self.batch_norm = nn.BatchNorm3d(in_ch)
-        self.conv = RRCNN_block(in_ch, out_ch, kernel_size=kernel_size)
+        self.conv_transpose = nn.ConvTranspose3d(in_ch, out_ch, kernel_size=kernel_size, padding=kernel_size//2, stride=2)
+        self.batch_norm = nn.BatchNorm3d(out_ch)
+        self.conv = RRCNN_block(out_ch, out_ch, kernel_size=kernel_size)
 
     def forward(self, x_down, x_up):
         x_down = self.conv_transpose(x_down)
         x_down = self.batch_norm(x_down)
         x_down = F.relu(x_down)
+        # print(x_down.shape, x_up.shape)
         if x_down.shape != x_up.shape:
             # this case will only happen when
             # x1 [N, C, D-1, H-1, W-1]
@@ -213,6 +214,7 @@ class UpConv(nn.Module):
 
         # x = torch.cat((x1, x2), 1)
         x = x_down + x_up
+        # print(x.shape)
         # diff_z = x_up.size()[2] - x_down.size()[2]
         # diff_x = x_up.size()[3] - x_down.size()[3]
         # diff_y = x_up.size()[4] - x_down.size()[4]

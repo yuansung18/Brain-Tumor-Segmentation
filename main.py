@@ -109,7 +109,9 @@ def main():
         gamma=args.gamma,
     )
     trainer = PytorchTrainer(
+        device_id=1,
         model=model,
+        checkpoint_dir=args.checkpoint_dir,
         dataset_size=len(data_provider),
         comet_experiment=experiment,
         profile=args.profile,

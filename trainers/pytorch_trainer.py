@@ -112,11 +112,11 @@ class PytorchTrainer(TrainerBase, ABC):
             print('Profiling...')
             self.profile.enable()
         loss_min = 1e9
-        for epoch in range(epoch_num):
+        for _ in range(epoch_num):
             loss_sum = 0
 
-            for data in tqdm(range(self.dataset_size)):
-                self.i_step += 1
+            for _ in tqdm(range(self.dataset_size//batch_size)):
+                self.i_step += batch_size
 
                 log_dict, aux_log_dicts = self.model.fit_generator(
                     training_data_generator,
@@ -196,7 +196,7 @@ class PytorchTrainer(TrainerBase, ABC):
         return metrics_dict
 
     def _save_volume_prediction(self, pred, batch_data, save_volume):
-        # to [D, H, W, C] format
+        # to [H, W, D, C] format
         pred = pred[0].transpose([2, 3, 1, 0])
         hard_pred = np.argmax(pred, axis=-1)
 

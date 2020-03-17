@@ -18,6 +18,7 @@ load_dotenv('./.env')
 
 def flow(
         data_provider,
+        data_id,
         trainer,
         args,
         fit_hyper_parameters=None,
@@ -32,7 +33,7 @@ def flow(
     get_data_generator_fn = get_data_generator_fns[args.predict_mode]
     all_metric_dict = trainer.predict_on_generator(
         data_generator=get_data_generator_fn(random=False),
-        save_base_dir=os.path.join(args.checkpoint_dir, f'{args.data_provider_id}'),
+        save_base_dir=os.path.join(args.checkpoint_dir, f'{data_id}'),
         metric=data_provider.metric,
         save_volume=args.save_volume,
         **fit_hyper_parameters,
@@ -90,7 +91,7 @@ if __name__ == '__main__':
     )
     
     trainer = PytorchTrainer(
-        device_id=1,
+        device_id=2,
         model=model,
         checkpoint_dir=args.checkpoint_dir,
         dataset_size=len(data_provider),
@@ -98,6 +99,7 @@ if __name__ == '__main__':
 
     flow(
         data_provider=data_provider,
+        data_id=data_id,
         trainer=trainer,
         args=args,
         fit_hyper_parameters=fit_hyper_parameters,
