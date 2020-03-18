@@ -64,6 +64,8 @@ def categorize_by_diagnosis(all_metric_dict, data_generator) -> dict:
 
 
 if __name__ == '__main__':
+    device_id = 0
+
     exp_id = os.path.basename(os.path.normpath(args.checkpoint_dir))
     model_id, data_id, time_stamp = parse_exp_id(exp_id)
     print(f'model_id: {model_id}',
@@ -86,12 +88,13 @@ if __name__ == '__main__':
 
     get_model, fit_hyper_parameters = ModelHub[model_id]
     model = get_model(
+        device_id=device_id,
         data_format=data_provider.data_format,
         auxiliary_data_formats=auxiliary_data_formats,
     )
     
     trainer = PytorchTrainer(
-        device_id=2,
+        device_id=device_id,
         model=model,
         checkpoint_dir=args.checkpoint_dir,
         dataset_size=len(data_provider),
