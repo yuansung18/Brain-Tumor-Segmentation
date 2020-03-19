@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 
 load_dotenv('./.env')
 
-BRAIN_DIR = os.environ.get('NTU_CHALLENGE_192_DIR')
+BRAIN_DIR = os.environ.get('NTU_CHALLENGE_DIR')
 
 class BrainDataProvider(DataProviderBase):
 
@@ -25,9 +25,9 @@ class BrainDataProvider(DataProviderBase):
 
     _data_format = {
         "channels": 1,
-        "depth": 80,
-        "height": 192,
-        "width": 192,
+        "depth": 76,
+        "height": 182,
+        "width": 182,
         "class_num": 2,
     }
 
@@ -69,16 +69,23 @@ class BrainDataGenerator(DataGeneratorBase):
         # print(data_ids)
         for idx, data_id in enumerate(data_ids):
             volume, label, affine = self._preload_get_image_and_label(data_id)
-            batch_volume[idx, :, :volume.shape[-3], :volume.shape[-2], :volume.shape[-1]] = \
+
+            up_idx, bottom_idx, front_idx, back_idx, left_idx, right_idx = \
+                    (volume.shape[-3]-self.data_format['depth'])//2, (volume.shape[-3]+self.data_format['depth'])//2, \
+                    (volume.shape[-2]-self.data_format['height'])//2, (volume.shape[-2]+self.data_format['height'])//2, \
+                    (volume.shape[-1]-self.data_format['width'])//2, (volume.shape[-1]+self.data_format['width'])//2
+
+            batch_volume[idx, :, :, :, :] = \
                 volume[
-                    :self.data_format['depth'],
-                    :self.data_format['height'],
-                    :self.data_format['width']]
-            batch_label[idx, :volume.shape[-3], :volume.shape[-2], :volume.shape[-1]] = \
+                    up_idx:bottom_idx,
+                    front_idx:back_idx,
+                    left_idx:right_idx]
+
+            batch_label[idx, :, :, :] = \
                 label[
-                    :self.data_format['depth'],
-                    :self.data_format['height'],
-                    :self.data_format['width']]
+                    up_idx:bottom_idx,
+                    front_idx:back_idx,
+                    left_idx:right_idx]
             affines.append(affine)
 
         return {

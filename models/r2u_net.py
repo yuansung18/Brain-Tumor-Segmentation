@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from .base import PytorchModelBase
-from .utils import get_tensor_from_array, normalize_batch_image
+from .utils import get_tensor_from_array
 
 
 class R2UNet(PytorchModelBase):
@@ -11,7 +11,6 @@ class R2UNet(PytorchModelBase):
     def __init__(
         self,
         data_format: dict,
-        device_id = 0,
         batch_sampler_id: str = 'three_dim',
         floor_num: int = 4,
         kernel_size: int = 3,
@@ -27,7 +26,6 @@ class R2UNet(PytorchModelBase):
         self.kernel_size = kernel_size
         self.conv_times = conv_times
         self.use_position = use_position
-        self.device_id = device_id
         super(R2UNet, self).__init__(
             batch_sampler_id=batch_sampler_id,
             data_format=data_format,
@@ -64,7 +62,7 @@ class R2UNet(PytorchModelBase):
 
     def forward_head(self, inp, data_idx):
         # inp, pos = inp['slice'], inp['position']
-        x = get_tensor_from_array(inp, self.device_id)
+        x = get_tensor_from_array(inp)
 
         # if self.use_position:
         #     pos = get_tensor_from_array(pos)
@@ -94,7 +92,8 @@ class R2UNet(PytorchModelBase):
             RRCNN_block(
                 input_channel,
                 output_channel,
-                kernel_size= self.kernel_size,
+                self.kernel_size,
+                self.dropout_rate,
             )
             for input_channel in input_channels
         ])
@@ -161,7 +160,7 @@ class DownConv(nn.Module):
         else:
             x = self.dropout(x)
         x = F.relu(x)
-        x = conv(x)
+        x = self.conv(x)
 
         return x
 
@@ -173,7 +172,7 @@ class UpConv(nn.Module):
         out_ch = in_ch // 2
         self.conv_transpose = nn.ConvTranspose3d(in_ch, out_ch, kernel_size=kernel_size, padding=kernel_size//2, stride=2)
         self.batch_norm = nn.BatchNorm3d(out_ch)
-        self.conv = RRCNN_block(out_ch, out_ch, kernel_size=kernel_size)
+        self.conv = RRCNN_block(out_ch, out_ch, kernel_size, dropout_rate)
 
     def forward(self, x_down, x_up):
         x_down = self.conv_transpose(x_down)
