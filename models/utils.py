@@ -18,13 +18,13 @@ def co_shuffle(*args):
     return (item[p] for item in args)
 
 
-def get_tensor_from_array(array: np.array):
+def get_tensor_from_array(array: np.array, device_id=1):
     if array.dtype == np.bool:
         array = array.astype(np.uint8)
 
     tensor = torch.Tensor(array)
     if torch.cuda.is_available():
-        tensor = tensor.cuda(1)
+        tensor = tensor.to(device_id)
     return tensor
 
 

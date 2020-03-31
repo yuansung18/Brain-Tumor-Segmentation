@@ -132,6 +132,7 @@ class UpConv(nn.Module):
             x1 = self.batch_norm(x1)
 
         x1 = F.relu(x1)
+        # print(x1.shape, x2.shape)
         if x1.shape != x2.shape:
             # this case will only happen when
             # x1 [N, C, D-1, H-1, W-1]

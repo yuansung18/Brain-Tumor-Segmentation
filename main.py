@@ -6,6 +6,7 @@ from parser import brain_tumor_argparse
 parser = brain_tumor_argparse()
 args = parser.parse_args()
 import random
+import torch
 random.seed(args.global_random_seed)
 
 import numpy as np
@@ -60,6 +61,7 @@ def flow(
 
 
 def main():
+    device_id = 1
     if args.do_comet:
         experiment.log_parameters(vars(args))
 
@@ -109,7 +111,7 @@ def main():
         gamma=args.gamma,
     )
     trainer = PytorchTrainer(
-        device_id=1,
+        device_id=device_id,
         model=model,
         checkpoint_dir=args.checkpoint_dir,
         dataset_size=len(data_provider),

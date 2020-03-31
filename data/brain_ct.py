@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 
 load_dotenv('./.env')
 
-BRAIN_DIR = os.environ.get('NTU_CHALLENGE_DIR')
+BRAIN_DIR = os.environ.get('NTU_CHALLENGE_182_DIR')
 
 class BrainDataProvider(DataProviderBase):
 
@@ -69,23 +69,16 @@ class BrainDataGenerator(DataGeneratorBase):
         # print(data_ids)
         for idx, data_id in enumerate(data_ids):
             volume, label, affine = self._preload_get_image_and_label(data_id)
-
-            up_idx, bottom_idx, front_idx, back_idx, left_idx, right_idx = \
-                    (volume.shape[-3]-self.data_format['depth'])//2, (volume.shape[-3]+self.data_format['depth'])//2, \
-                    (volume.shape[-2]-self.data_format['height'])//2, (volume.shape[-2]+self.data_format['height'])//2, \
-                    (volume.shape[-1]-self.data_format['width'])//2, (volume.shape[-1]+self.data_format['width'])//2
-
-            batch_volume[idx, :, :, :, :] = \
+            batch_volume[idx, :, :volume.shape[-3], :volume.shape[-2], :volume.shape[-1]] = \
                 volume[
-                    up_idx:bottom_idx,
-                    front_idx:back_idx,
-                    left_idx:right_idx]
-
-            batch_label[idx, :, :, :] = \
+                    :self.data_format['depth'],
+                    :self.data_format['height'],
+                    :self.data_format['width']]
+            batch_label[idx, :volume.shape[-3], :volume.shape[-2], :volume.shape[-1]] = \
                 label[
-                    up_idx:bottom_idx,
-                    front_idx:back_idx,
-                    left_idx:right_idx]
+                    :self.data_format['depth'],
+                    :self.data_format['height'],
+                    :self.data_format['width']]
             affines.append(affine)
 
         return {

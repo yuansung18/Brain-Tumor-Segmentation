@@ -47,7 +47,7 @@ ModelHub = {
         ),
         {
             **DEFAULT_TRAINING_PARAM,
-            'batch_size': 7,
+            'batch_size': 1,
         },
     ),
     'u_net_positional': (

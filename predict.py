@@ -88,7 +88,6 @@ if __name__ == '__main__':
 
     get_model, fit_hyper_parameters = ModelHub[model_id]
     model = get_model(
-        device_id=device_id,
         data_format=data_provider.data_format,
         auxiliary_data_formats=auxiliary_data_formats,
     )

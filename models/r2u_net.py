@@ -16,7 +16,7 @@ class R2UNet(PytorchModelBase):
         kernel_size: int = 3,
         channel_num: int = 16,
         conv_times: int = 2,
-        use_position=False,
+        use_position = False,
         dropout_rate: int = 0.,
         attention: bool = False,
         self_attention: int = 0,
@@ -41,8 +41,8 @@ class R2UNet(PytorchModelBase):
         self.up_layers = nn.ModuleList()
 
         self.self_attention_module = nn.Sequential(*[
-          SelfAttention(in_dim=2 ** floor_num * channel_num)
-          for _ in range(self_attention)
+            SelfAttention(in_dim=2 ** floor_num * channel_num)
+            for _ in range(self_attention)
         ])
 
         for floor_idx in range(floor_num):
@@ -107,24 +107,30 @@ class R2UNet(PytorchModelBase):
 class RCNN_block(nn.Module):
     def __init__(self, ch_out, kernel_size, dropout_rate, t=2):
         super(RCNN_block, self).__init__()
+        self.p = dropout_rate
         self.t = t
         self.conv = nn.Conv3d(ch_out, ch_out, kernel_size=kernel_size, stride=1, padding=kernel_size//2)
-        self.batch_norm = nn.BatchNorm3d(ch_out)
-        self.dropout = nn.Dropout3d(p=dropout_rate)
+        if dropout_rate == 0:
+            self.batch_norm = nn.BatchNorm3d(ch_out)
+        else:
+            self.dropout = nn.Dropout3d(p=dropout_rate)
 
     def forward(self,x):
         for i in range(self.t):
 
             if i==0:
                 x1 = self.conv(x)
-                if self.dropout.p == 0:
+                if self.p == 0:
                     x1 = self.batch_norm(x1)
                 else:
                     x1 = self.dropout(x1)
                 x1 = F.relu(x1)
 
             x1 = self.conv(x+x1)
-            x1 = self.batch_norm(x1)
+            if self.p == 0:
+                x1 = self.batch_norm(x1)
+            else:
+                x1 = self.dropout(x1)
             x1 = F.relu(x1)
 
         return x1
@@ -146,16 +152,19 @@ class RRCNN_block(nn.Module):
 class DownConv(nn.Module):
 
     def __init__(self, in_ch, kernel_size, dropout_rate):
-        out_ch = in_ch * 2
         super(DownConv, self).__init__()
+        out_ch = in_ch * 2
+        self.p = dropout_rate
         self.down_conv = nn.Conv3d(in_ch, in_ch, kernel_size=kernel_size, padding=kernel_size//2, stride=2)
-        self.batch_norm = nn.BatchNorm3d(in_ch)
-        self.dropout = nn.Dropout3d(p=dropout_rate)
+        if dropout_rate == 0:
+            self.batch_norm = nn.BatchNorm3d(in_ch)
+        else:
+            self.dropout = nn.Dropout3d(p=dropout_rate)
         self.conv = RRCNN_block(in_ch, out_ch, kernel_size, dropout_rate)
 
     def forward(self, x):
         x = self.down_conv(x)
-        if self.dropout.p == 0:
+        if self.p == 0:
             x = self.batch_norm(x)
         else:
             x = self.dropout(x)
@@ -170,13 +179,20 @@ class UpConv(nn.Module):
     def __init__(self, in_ch, kernel_size, dropout_rate):
         super(UpConv, self).__init__()
         out_ch = in_ch // 2
+        self.p = dropout_rate
         self.conv_transpose = nn.ConvTranspose3d(in_ch, out_ch, kernel_size=kernel_size, padding=kernel_size//2, stride=2)
-        self.batch_norm = nn.BatchNorm3d(out_ch)
+        if dropout_rate == 0:
+            self.batch_norm = nn.BatchNorm3d(out_ch)
+        else:
+            self.dropout = nn.Dropout3d(p=dropout_rate)
         self.conv = RRCNN_block(out_ch, out_ch, kernel_size, dropout_rate)
 
     def forward(self, x_down, x_up):
         x_down = self.conv_transpose(x_down)
-        x_down = self.batch_norm(x_down)
+        if self.p == 0:
+            x_down = self.batch_norm(x_down)
+        else:
+            x_down = self.dropout(x_down)
         x_down = F.relu(x_down)
         # print(x_down.shape, x_up.shape)
         if x_down.shape != x_up.shape:

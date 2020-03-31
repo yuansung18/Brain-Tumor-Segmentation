@@ -60,6 +60,9 @@ class PytorchModelBase(ModelBase, nn.Module):
             input_channels=forward_outcome_channels,
             class_nums=class_nums,
         )
+        # if torch.cuda.device_count() > 1:
+        #     print(f'GPU count: {torch.cuda.device_count()}')
+        #     self = nn.DataParallel(self)
 
     def fit_generator(
             self,
@@ -99,6 +102,7 @@ class PytorchModelBase(ModelBase, nn.Module):
         for idx in sample_batch_order:
             batch_data, batch_label, data_idx = \
                 batch_data_list[idx], batch_label_list[idx], data_idx_list[idx]
+            # print(batch_data.shape[:])
             batch_pred = self.forward_head(batch_data, data_idx)
             batch_pred = self.forward(batch_pred)
             batch_pred = self.tails[data_idx](batch_pred)

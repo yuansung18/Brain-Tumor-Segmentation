@@ -28,7 +28,7 @@ class PytorchTrainer(TrainerBase, ABC):
             self,
             model: PytorchModelBase,
             dataset_size: int,
-            device_id: int = 0,
+            device_id = 0,
             optimizer=None,
             scheduler=None,
             comet_experiment: comet_ml.Experiment = None,
@@ -58,7 +58,7 @@ class PytorchTrainer(TrainerBase, ABC):
         #     print(f'GPU count: {torch.cuda.device_count()}')
         #     self.model = nn.DataParallel(self.model)
         if torch.cuda.is_available():
-            self.model.cuda(device_id)
+            self.model.to(device_id)
         print(f'Total parameters: {self.count_parameters()}')
         if checkpoint_dir is not None:
             self.load(checkpoint_dir)
