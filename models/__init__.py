@@ -4,6 +4,7 @@ from .toy_model import ToyModel
 from .u_net import UNet
 from .v_net import VNet
 from .r2u_net import R2UNet
+from .b3d_vae import B3D_VAE
 from .pspnet import PSPNet
 from .high_resolution_compact_network import HighResolutionCompactNetwork
 
@@ -35,6 +36,15 @@ ModelHub = {
     'r2u_net': (
         partial(
             R2UNet,
+        ),
+        {
+            **DEFAULT_TRAINING_PARAM,
+            'batch_size': 1,
+        },
+    ),
+    'b3d_vae': (
+        partial(
+            B3D_VAE,
         ),
         {
             **DEFAULT_TRAINING_PARAM,

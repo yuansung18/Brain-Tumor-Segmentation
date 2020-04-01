@@ -6,6 +6,8 @@ from utils import to_one_hot_label
 from utils import epsilon
 from models.loss_functions.utils import GetClassWeights
 
+def sigmoid(x):
+    return 1. / (1 + np.exp(-x))
 
 def hard_max(x):
     index_x = np.argmax(x, axis=1)
@@ -38,6 +40,15 @@ def cross_entropy(prob_pred, tar_ids):
     ce = -selected_weights * np.log(np.squeeze(selected_pred, axis=1) + epsilon)  # (N, ...)
     ce = np.mean(ce)
     return ce
+
+
+def l2_norm(prob_pred, tar):
+    return np.mean((prob_pred - tar) ** 2)
+
+
+def kl_div(prob_pred, mean, var):
+    total_node = prob_pred.view(logits[0], -1).shape[-1]
+    return np.sum(np.exp(var) + mean ** 2 - 1. - var) / total_node
 
 
 def volumewise_mean_score(score_fn, pred_batch, tar_batch):
@@ -164,7 +175,6 @@ class BRATSMetric(MetricBase):
 
 
 class StructSegHaNMetric(MetricBase):
-
     class_weights = {
         'left eye': 100,
         'right eye': 100,

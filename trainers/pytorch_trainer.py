@@ -62,7 +62,7 @@ class PytorchTrainer(TrainerBase, ABC):
         print(f'Total parameters: {self.count_parameters()}')
         if checkpoint_dir is not None:
             self.load(checkpoint_dir)
-
+        print(model)
         self.i_step = 0
 
     def count_parameters(self):

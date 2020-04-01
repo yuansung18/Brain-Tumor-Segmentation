@@ -29,12 +29,18 @@ class PytorchModelBase(ModelBase, nn.Module):
             forward_outcome_channels: int,
             head_outcome_channels: int,
             auxiliary_data_formats: list,
+            use_vae: bool = False,
             loss_function_id: str = 'crossentropy',
+            vae_loss_function_id: str = 'l2+kl',
             clip_grad: float = 0.,
             optim_batch_steps: int = 1,
+
     ):
         nn.Module.__init__(self)
         self.loss_fn = loss_function_hub[loss_function_id]
+        if use_vae:
+            self.vae_loss_fn = loss_function_hub[vae_loss_function_id]
+
         self.batch_sampler_constructor = BatchSamplerHub[batch_sampler_id]
         self.batch_sampler = self.batch_sampler_constructor(
             data_format=data_format
@@ -42,6 +48,7 @@ class PytorchModelBase(ModelBase, nn.Module):
         self.clip_grad = clip_grad
         self.batch_step_num = 0  # keeps count of how many batches processed
         self.optim_batch_steps = optim_batch_steps  # optimizer steps after this many steps
+        self.use_vae = use_vae
 
         all_data_formats = [data_format] + auxiliary_data_formats
         data_channels = [
@@ -64,14 +71,7 @@ class PytorchModelBase(ModelBase, nn.Module):
         #     print(f'GPU count: {torch.cuda.device_count()}')
         #     self = nn.DataParallel(self)
 
-    def fit_generator(
-            self,
-            training_data_generator,
-            aux_data_generators,
-            optimizer,
-            batch_size,
-            **kwargs,
-    ):
+    def fit_generator(self, training_data_generator, aux_data_generators, optimizer, batch_size, **kwargs):
         """
         fit on generator for one single volume
         """
@@ -104,9 +104,16 @@ class PytorchModelBase(ModelBase, nn.Module):
                 batch_data_list[idx], batch_label_list[idx], data_idx_list[idx]
             # print(batch_data.shape[:])
             batch_pred = self.forward_head(batch_data, data_idx)
-            batch_pred = self.forward(batch_pred)
+            if self.use_vae:
+                batch_pred, batch_vae, vae_mean, vae_var = self.forward(batch_pred)
+                vae_loss, _ = self.vae_loss_fn(batch_vae, batch_data, vae_mean, vae_var)
+            else:
+                batch_pred = self.forward(batch_pred)
             batch_pred = self.tails[data_idx](batch_pred)
+
             loss, log = self.loss_fn(batch_pred, batch_label)
+            if self.use_vae:
+                loss += vae_loss
             loss /= self.optim_batch_steps
             logs[data_idx].append(log)
             loss.backward()

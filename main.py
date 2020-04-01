@@ -6,7 +6,6 @@ from parser import brain_tumor_argparse
 parser = brain_tumor_argparse()
 args = parser.parse_args()
 import random
-import torch
 random.seed(args.global_random_seed)
 
 import numpy as np
@@ -19,6 +18,7 @@ from data.data_providers import DataProviderHub
 from utils import parse_exp_id
 from trainers.pytorch_trainer import PytorchTrainer
 from optimizers import OptimizerFactory
+
 
 load_dotenv('./.env')
 RESULT_DIR = os.environ.get('RESULT_DIR')
