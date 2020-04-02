@@ -63,11 +63,11 @@ class MetricBase:
                 f"pred.shape should be equal to tar.shape, "
                 f"got pred = {pred.shape} and tar = {tar.shape}",
             )
-        if pred.shape[1] < 2:
-            raise ValueError(
-                f'pred.shape[1] (class_num) should be greater than 1, '
-                f'got class_num = {pred.shape[1]}'
-            )
+        # if pred.shape[1] < 2:
+        #     raise ValueError(
+        #         f'pred.shape[1] (class_num) should be greater than 1, '
+        #         f'got class_num = {pred.shape[1]}'
+        #     )
         if pred.ndim != 5:
             raise ValueError(
                 'Input shape of Metric-Class should be (N, C, D, H, W), '
@@ -88,7 +88,8 @@ class ClasswiseMetric(MetricBase):
     def __init__(self, pred, tar):
         self.class_num = pred.shape[1]  # class_num includes background
         self.tar_ids = tar
-        tar = to_one_hot_label(tar, self.class_num)
+        # tar = to_one_hot_label(tar, self.class_num)
+        tar = np.expand_dims(tar, axis=1)
         super().__init__(pred, tar)
 
         self.prob_pred = pred
@@ -113,7 +114,7 @@ class ClasswiseMetric(MetricBase):
                 for metric_name, (metric_fn, p) in self.metrics.items()
                 for i in range(1, self.class_num)
             },
-            'crossentropy': partial(cross_entropy, self.prob_pred, self.tar_ids),
+            # 'crossentropy': partial(cross_entropy, self.prob_pred, self.tar_ids),
         }
 
     def all_metrics(self, verbose=True):

@@ -61,7 +61,7 @@ def flow(
 
 
 def main():
-    device_id = 1
+    device_id = 2
     if args.do_comet:
         experiment.log_parameters(vars(args))
 

@@ -138,13 +138,15 @@ class PytorchModelBase(ModelBase, nn.Module):
             batch_data_list, _ = self.batch_sampler.convert_to_feedable(
                 test_data, training=False, **kwargs
             )
-            preds = [
-                nn.functional.softmax(
-                    self.tails[0](self.forward(self.forward_head(batch_data, 0))),
-                    dim=1
+            preds = []
+            for batch_data in batch_data_list:
+                batch_pred = self.forward_head(batch_data, 0)
+                batch_pred, _, _, _ = self.forward(batch_pred)
+                batch_pred = torch.sigmoid(
+                    self.tails[0](batch_pred)
                 ).cpu().data.numpy()
-                for batch_data in batch_data_list
-            ]
+                preds.append(batch_pred)
+
         return self.batch_sampler.reassemble(preds, test_data)
 
     @abstractmethod

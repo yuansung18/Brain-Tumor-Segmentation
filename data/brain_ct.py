@@ -17,9 +17,9 @@ class BrainDataProvider(DataProviderBase):
 
     _data_format = {
         "channels": 1,
-        "depth": 200,
-        "height": 200,
-        "width": 200,
+        "depth": 80,
+        "height": 144,
+        "width": 144,
         "class_num": 1,
     }
 

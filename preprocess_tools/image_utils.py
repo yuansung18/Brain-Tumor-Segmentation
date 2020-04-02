@@ -97,8 +97,8 @@ def load_nii(file_path):
 class ImageProcessor():
     def __init__(
         self,
-        zoom_shape: [int] = (214, 214, 80),
-        target_shape: [int] = (182, 182, 76),
+        zoom_shape: [int] = (80, 80, 80),
+        target_shape: [int] = (80, 80, 80),
     ):
         self.target_shape = target_shape
         self.zoom_shape = zoom_shape

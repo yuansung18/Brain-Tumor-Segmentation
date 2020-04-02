@@ -18,7 +18,7 @@ def co_shuffle(*args):
     return (item[p] for item in args)
 
 
-def get_tensor_from_array(array: np.array, device_id=1):
+def get_tensor_from_array(array: np.array, device_id=2):
     if array.dtype == np.bool:
         array = array.astype(np.uint8)
 

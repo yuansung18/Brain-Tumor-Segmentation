@@ -32,14 +32,14 @@ def minus_dice(logits: torch.Tensor, tar: np.array, dice_type: str = 'my'):
     if not dice_type == 'sigmoid':
         onehot_tar = to_one_hot_label(tar, class_num=logits.shape[1])
     else:
-        onehot_tar = tar
+        onehot_tar = np.expand_dims(tar, axis=1)
     dice_fn = dice_score_hub[dice_type]
     dice_score, log = dice_fn(logits, onehot_tar)
     return -dice_score, log
 
 
 def l2_plus_kl(logits: torch.Tensor, target: np.array, mean, var, weight_L2: float = 0.1, weight_KL: float = 0.1):
-    total_node = logits.view(logits[0], -1).shape[-1]
+    total_node = logits.view(logits.shape[0], -1).shape[-1]
     target = get_tensor_from_array(target)
 
     loss_L2 = torch.mean((logits - target) ** 2)
