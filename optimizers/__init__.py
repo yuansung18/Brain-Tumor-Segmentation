@@ -15,10 +15,13 @@ class OptimizerFactory:
             model_parameters,
             dataset_size,
             optimizer_type='Adam',
-            scheduler_type='MultiStepLR',
-            epoch_milestones=(50, 70),
+            # scheduler_type='MultiStepLR',
+            scheduler_type='LambdaLR',
+            epoch_milestones=None,
             **kwargs,
     ):
+        if epoch_milestones is None:
+            epoch_milestones = [50, 70]
         if optimizer_type in self.custom_optimizers.keys():
             opt_constructor = self.custom_optimizers[optimizer_type]
         else:
@@ -26,13 +29,19 @@ class OptimizerFactory:
 
         scheduler_constructor = eval(f'torch.optim.lr_scheduler.{scheduler_type}')
 
-        step_milestones = [n_epoch * dataset_size for n_epoch in epoch_milestones]
+        # step_milestones = [n_epoch * dataset_size for n_epoch in epoch_milestones]
+        lambda1 = lambda epoch: (1 - epoch/50) ** 0.9
         optimizer = opt_constructor(
             model_parameters,
             **match_kwargs(opt_constructor, **kwargs),
         )
         scheduler = scheduler_constructor(
             optimizer,
-            **match_kwargs(scheduler_constructor, milestones=step_milestones, **kwargs),
+            **match_kwargs(
+                scheduler_constructor,
+                # milestones=epoch_milestones,
+                lr_lambda=lambda1,
+                **kwargs
+            ),
         )
         return optimizer, scheduler

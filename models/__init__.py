@@ -10,7 +10,7 @@ from .high_resolution_compact_network import HighResolutionCompactNetwork
 
 DEFAULT_TRAINING_PARAM = {
     'batch_size': 50,
-    'epoch_num': 1500 * 200,
+    'epoch_num': 50,
     'verbose_epoch_num': 0.2,
 }
 

@@ -126,7 +126,6 @@ class PytorchTrainer(TrainerBase, ABC):
                     batch_size=batch_size,
                 )
                 loss_sum += log_dict['soft_dice']
-                self.scheduler.step()
                 # fits on one single volume, one step = one volume
 
                 if self.i_step % verbose_step_num == 0:
@@ -156,9 +155,11 @@ class PytorchTrainer(TrainerBase, ABC):
                     print(f'Exported profiling stats to {self.profile_export_file_path}')
                     print("Exit by profiler")
                     sys.exit(0)
-            print(f'Dice loss: {loss_sum}')
+
+            print(f'Dice loss: {loss_sum}, lr:{self.scheduler.get_lr()}')
             if loss_sum < loss_min:
                 self.save()
+            self.scheduler.step()
             
 
     def predict_on_generator(
@@ -199,7 +200,8 @@ class PytorchTrainer(TrainerBase, ABC):
     def _save_volume_prediction(self, pred, batch_data, save_volume):
         # to [H, W, D, C] format
         pred = pred[0].transpose([2, 3, 1, 0])
-        hard_pred = np.argmax(pred, axis=-1)
+        hard_pred = np.squeeze(pred, axis=3)
+        # hard_pred = np.argmax(pred, axis=-1)
 
         data_id = batch_data['data_ids'][0]
         affine = batch_data['affines'][0]

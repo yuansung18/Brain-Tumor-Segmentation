@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 
 load_dotenv('./.env')
 
-BRAIN_DIR = os.environ.get('NTU_CHALLENGE_DIR')
+BRAIN_DIR = os.environ.get('NTU_CHALLENGE_144_DIR')
 
 class BrainDataProvider(DataProviderBase):
 
@@ -25,10 +25,10 @@ class BrainDataProvider(DataProviderBase):
 
     # _data_format = {
     #     "channels": 1,
-    #     "depth": 76,
-    #     "height": 182,
-    #     "width": 182,
-    #     "class_num": 2,
+    #     "depth": 80,
+    #     "height": 80,
+    #     "width": 80,
+    #     "class_num": 1,
     # }
 
     def __init__(self, args):

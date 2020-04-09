@@ -9,6 +9,10 @@ from models.loss_functions.utils import GetClassWeights
 def sigmoid(x):
     return 1. / (1 + np.exp(-x))
 
+def sigmoid_hard_max(x):
+    categorical_x = x > 0.5
+    return categorical_x
+
 def hard_max(x):
     index_x = np.argmax(x, axis=1)
     categorical_x = to_one_hot_label(index_x, class_num=x.shape[1])
@@ -93,7 +97,8 @@ class ClasswiseMetric(MetricBase):
         super().__init__(pred, tar)
 
         self.prob_pred = pred
-        self.pred = hard_max(pred)
+        self.pred = sigmoid_hard_max(pred)
+        # self.pred = hard_max(pred)
         self.tar = tar
 
         self.metrics = {
@@ -105,14 +110,13 @@ class ClasswiseMetric(MetricBase):
 
         self.do_all_metrics = {
             **{
-                f'{metric_name}_class{i}': partial(
+                f'{metric_name}_class0': partial(
                     volumewise_mean_score,
                     score_fn=metric_fn,
-                    pred_batch=p[:, i],
-                    tar_batch=self.tar[:, i],
+                    pred_batch=p,
+                    tar_batch=self.tar,
                 )
                 for metric_name, (metric_fn, p) in self.metrics.items()
-                for i in range(1, self.class_num)
             },
             # 'crossentropy': partial(cross_entropy, self.prob_pred, self.tar_ids),
         }

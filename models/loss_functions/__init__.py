@@ -17,5 +17,5 @@ loss_function_hub = {
     'naive_dice': partial(minus_dice, dice_type='naive'),
     'sigmoid_dice': partial(minus_dice, dice_type='sigmoid'),
     'crossentropy': weighted_cross_entropy,
-    'l2+kl': partial(l2_plus_kl, weight_L2=0.1, weight_KL=0.1),
+    'l2+kl': partial(l2_plus_kl, weight_L2=0.3, weight_KL=0.3),
 }
