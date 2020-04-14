@@ -128,7 +128,7 @@ class ClasswiseMetric(MetricBase):
         for metric_name, score in results.items():
             for prefix in self.metrics.keys():
                 if metric_name.startswith(prefix):
-                    accum_scores[prefix] += score / (self.class_num - 1)  # minus 1 for background
+                    accum_scores[prefix] += score / (self.class_num)  # minus 1 for background
                     break
 
         new_results = {

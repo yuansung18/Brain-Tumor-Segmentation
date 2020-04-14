@@ -123,10 +123,10 @@ class Green_block(nn.Module):
     def forward(self, x):
         x_skip = self.skip_conv(x)
         x = self.norm1(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x)
         x = self.conv1(x)
         x = self.norm2(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x)
         x = self.conv2(x)
         x = x + x_skip
 
@@ -148,7 +148,6 @@ class DownConv(nn.Module):
         x = self.green2(x)
 
         return x
-
 
 class UpConv(nn.Module):
 
@@ -201,7 +200,7 @@ class VAE(nn.Module):
     def forward(self, x):
         # VD Block (Reducing dimensionality of the data)
         x = self.VD['GN'](x)
-        x = F.relu(x)
+        x = F.leaky_relu(x)
         x = self.VD['conv'](x)
         x = x.view(x.shape[0], -1)
         x = self.VD['dense'](x)
@@ -214,7 +213,7 @@ class VAE(nn.Module):
 
         # VU Block (Upsizing back to a depth of 256)
         x = self.VU['dense'](x)
-        x = F.relu(x)
+        x = F.leaky_relu(x)
         x = x.view(x.shape[0], -1, self.shape[0] // 16, self.shape[1] // 16, self.shape[2] // 16)
         x = self.VU['conv1'](x)
         x = self.VU['upsampling'](x)

@@ -64,7 +64,7 @@ def categorize_by_diagnosis(all_metric_dict, data_generator) -> dict:
 
 
 if __name__ == '__main__':
-    device_id = 0
+    device_id = 2
 
     exp_id = os.path.basename(os.path.normpath(args.checkpoint_dir))
     model_id, data_id, time_stamp = parse_exp_id(exp_id)

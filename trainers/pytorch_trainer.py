@@ -59,6 +59,7 @@ class PytorchTrainer(TrainerBase, ABC):
         #     self.model = nn.DataParallel(self.model)
         if torch.cuda.is_available():
             self.model.to(device_id)
+            torch.backends.cudnn.benchmark = True
         print(f'Total parameters: {self.count_parameters()}')
         if checkpoint_dir is not None:
             self.load(checkpoint_dir)
@@ -106,6 +107,7 @@ class PytorchTrainer(TrainerBase, ABC):
             verbose_epoch_num,
             **kwargs,
     ):
+        global batch
         step_num = epoch_num * self.dataset_size
         verbose_step_num = ceil(verbose_epoch_num * self.dataset_size)
 
@@ -116,7 +118,7 @@ class PytorchTrainer(TrainerBase, ABC):
         for _ in range(epoch_num):
             loss_sum = 0
 
-            for _ in tqdm(range(self.dataset_size//batch_size)):
+            for batch in tqdm(range(self.dataset_size//batch_size)):
                 self.i_step += batch_size
 
                 log_dict, aux_log_dicts = self.model.fit_generator(
@@ -156,7 +158,7 @@ class PytorchTrainer(TrainerBase, ABC):
                     print("Exit by profiler")
                     sys.exit(0)
 
-            print(f'Dice loss: {loss_sum}, lr:{self.scheduler.get_lr()}')
+            print(f'Dice loss: {loss_sum/(batch*batch_size)}, lr:{self.scheduler.get_lr()}')
             if loss_sum < loss_min:
                 self.save()
             self.scheduler.step()
