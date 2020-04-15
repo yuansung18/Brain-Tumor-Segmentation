@@ -127,7 +127,28 @@ class PytorchModelBase(ModelBase, nn.Module):
                 self.zero_grad()
 
         logs = [summarize_logs(log) for log in logs]
-        return logs[0], logs[1:]
+        return logs[0], logs[1:], loss.item()
+
+    def validation_predict(self, valid_data, **kwargs):
+        """
+        currently only for main data, i.e. tail_id=0
+        """
+        self.eval()
+        with torch.no_grad():
+            batch_data_list, label_list = self.batch_sampler.convert_to_feedable(
+                valid_data, training=False, **kwargs
+            )
+            for batch_data, batch_label in zip(batch_data_list, label_list):
+                batch_pred = self.forward_head(batch_data, 0)
+                if self.use_vae:
+                    batch_pred, batch_vae, vae_mean, vae_var = self.forward(batch_pred)
+                    vae_loss, _ = self.vae_loss_fn(batch_vae, batch_data, vae_mean, vae_var)
+                batch_pred = self.tails[0](batch_pred)
+                loss, _ = self.loss_fn(batch_pred, batch_label)
+                if self.use_vae:
+                    loss += vae_loss
+
+        return loss.item()
 
     def predict(self, test_data, **kwargs):
         """

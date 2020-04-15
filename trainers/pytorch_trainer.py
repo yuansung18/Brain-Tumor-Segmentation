@@ -66,6 +66,12 @@ class PytorchTrainer(TrainerBase, ABC):
 
         self.i_step = 0
 
+        # for early stopping
+        self.counter = 0
+        self.best_score = None
+        self.early_stop = False
+        self.val_loss_min = np.Inf
+
 
     def count_parameters(self):
         return sum(p.numel() for p in self.model.parameters() if p.requires_grad)
@@ -95,6 +101,29 @@ class PytorchTrainer(TrainerBase, ABC):
         pred = self.model.predict(batch_data, **kwargs)
         return metric(pred, label).all_metrics()
 
+    def _earlystopping(self, val_loss, patience=7, verbose=False, delta=0):
+        score = -val_loss
+
+        if self.best_score is None:
+            self.best_score = score
+            self.save
+            if verbose:
+                print(f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...')
+            self.val_loss_min = val_loss
+        elif score < self.best_score + delta:
+            self.counter += 1
+            print(f'EarlyStopping counter: {self.counter} out of {patience}')
+            if self.counter >= patience:
+                self.early_stop = True
+        else:
+            self.best_score = score
+            self.save
+            if verbose:
+                print(f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...')
+            self.val_loss_min = val_loss
+            self.counter = 0
+
+
     def fit_generator(
             self,
             training_data_generator,
@@ -114,39 +143,38 @@ class PytorchTrainer(TrainerBase, ABC):
         if self.profile is not None:
             print('Profiling...')
             self.profile.enable()
-        loss_min = 1e9
-        for _ in range(epoch_num):
+        for epoch in range(epoch_num):
             loss_sum = 0
 
             for batch in tqdm(range(self.dataset_size//batch_size)):
                 self.i_step += batch_size
 
-                log_dict, aux_log_dicts = self.model.fit_generator(
+                log_dict, aux_log_dicts, loss = self.model.fit_generator(
                     training_data_generator,
                     auxiliary_data_generators,
                     self.opt,
                     batch_size=batch_size,
                 )
-                loss_sum += log_dict['soft_dice']
+                loss_sum += loss
                 # fits on one single volume, one step = one volume
 
-                if self.i_step % verbose_step_num == 0:
-                    print(f'epoch: {self.i_step / self.dataset_size:.2f}', log_dict)
-                    self.save()
-                    metrics = self._validate(
-                        validation_data_generator, metric, batch_size=batch_size
-                    )
-                    if self.comet_experiment is not None:
-                        self.comet_experiment.log_metrics(
-                            log_dict, prefix='training', step=self.i_step
-                        )
-                        for log, name in zip(aux_log_dicts, auxiliary_data_provider_ids):
-                            self.comet_experiment.log_metrics(
-                                log, prefix=f'aux_{name}', step=self.i_step
-                            )
-                        self.comet_experiment.log_metrics(
-                            metrics, prefix='validation', step=self.i_step
-                        )
+                # if self.i_step % verbose_step_num == 0:
+                #     print(f'epoch: {self.i_step / self.dataset_size:.2f}', log_dict)
+                #     self.save()
+                #     metrics = self._validate(
+                #         validation_data_generator, metric, batch_size=batch_size
+                #     )
+                #     if self.comet_experiment is not None:
+                #         self.comet_experiment.log_metrics(
+                #             log_dict, prefix='training', step=self.i_step
+                #         )
+                #         for log, name in zip(aux_log_dicts, auxiliary_data_provider_ids):
+                #             self.comet_experiment.log_metrics(
+                #                 log, prefix=f'aux_{name}', step=self.i_step
+                #             )
+                #         self.comet_experiment.log_metrics(
+                #             metrics, prefix='validation', step=self.i_step
+                #         )
 
                 if self.i_step == self.profile_steps and self.profile is not None:
                     self.profile.disable()
@@ -157,10 +185,20 @@ class PytorchTrainer(TrainerBase, ABC):
                     print(f'Exported profiling stats to {self.profile_export_file_path}')
                     print("Exit by profiler")
                     sys.exit(0)
+            valid_losses = []
+            for _ in tqdm(range(len(validation_data_generator))):
+                batch_data = validation_data_generator(batch_size=1)
+                loss = self.model.validation_predict(batch_data, batch_size=1)
+                valid_losses.append(loss)
 
-            print(f'Dice loss: {loss_sum/(batch*batch_size)}, lr:{self.scheduler.get_lr()}')
-            if loss_sum < loss_min:
-                self.save()
+            valid_loss = np.average(valid_losses)
+            print(f'epoch: {epoch}, lr: {self.scheduler.get_lr()}')
+            print(f'Training loss  : {loss_sum/(batch*batch_size)}')
+            print(f'Validation loss: {valid_loss}')
+            self._earlystopping(valid_loss, verbose=True)
+            if self.early_stop:
+                print('Early stopping!!')
+                break
             self.scheduler.step()
             
 
