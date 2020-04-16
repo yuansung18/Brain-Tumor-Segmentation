@@ -35,7 +35,7 @@ def minus_dice(logits: torch.Tensor, tar: np.array, dice_type: str = 'my'):
         onehot_tar = np.expand_dims(tar, axis=1)
     dice_fn = dice_score_hub[dice_type]
     dice_score, log = dice_fn(logits, onehot_tar)
-    return -dice_score, log
+    return 1-dice_score, log
 
 
 def l2_plus_kl(logits: torch.Tensor, target: np.array, mean, var, weight_L2: float = 0.1, weight_KL: float = 0.1):

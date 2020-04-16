@@ -106,7 +106,7 @@ class PytorchTrainer(TrainerBase, ABC):
 
         if self.best_score is None:
             self.best_score = score
-            self.save
+            self.save()
             if verbose:
                 print(f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...')
             self.val_loss_min = val_loss
@@ -117,7 +117,7 @@ class PytorchTrainer(TrainerBase, ABC):
                 self.early_stop = True
         else:
             self.best_score = score
-            self.save
+            self.save()
             if verbose:
                 print(f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...')
             self.val_loss_min = val_loss
@@ -192,7 +192,7 @@ class PytorchTrainer(TrainerBase, ABC):
                 valid_losses.append(loss)
 
             valid_loss = np.average(valid_losses)
-            print(f'epoch: {epoch}, lr: {self.scheduler.get_lr()}')
+            print(f'epoch: {epoch}, lr: {self.scheduler.get_last_lr()}')
             print(f'Training loss  : {loss_sum/(batch*batch_size)}')
             print(f'Validation loss: {valid_loss}')
             self._earlystopping(valid_loss, verbose=True)
