@@ -115,19 +115,25 @@ class Green_block(nn.Module):
     def __init__(self, in_ch, out_ch, kernel_size):
         super(Green_block, self).__init__()
         self.skip_conv = nn.Conv3d(in_ch, out_ch, kernel_size=1)
-        self.norm1 = nn.GroupNorm(8, in_ch)
+        self.drop1 = nn.Dropout3d(p=0.1)
+        # self.norm1 = nn.GroupNorm(8, in_ch)
         self.conv1 = nn.Conv3d(in_ch, out_ch, kernel_size=kernel_size, padding=kernel_size // 2)
-        self.norm2 = nn.GroupNorm(8, out_ch)
+        self.drop2 = nn.Dropout3d(p=0.1)
+        # self.norm2 = nn.GroupNorm(8, out_ch)
         self.conv2 = nn.Conv3d(out_ch, out_ch, kernel_size=kernel_size, padding=kernel_size // 2)
 
     def forward(self, x):
         x_skip = self.skip_conv(x)
-        x = self.norm1(x)
-        x = F.leaky_relu(x)
+        # x = self.norm1(x)
+        # x = F.leaky_relu(x)
         x = self.conv1(x)
-        x = self.norm2(x)
+        x = self.drop1(x)
         x = F.leaky_relu(x)
+        # x = self.norm2(x)
+        # x = F.leaky_relu(x)
         x = self.conv2(x)
+        x = self.drop2(x)
+        x = F.leaky_relu(x)
         x = x + x_skip
 
         return x
@@ -174,8 +180,9 @@ class VAE(nn.Module):
         d, w, h = data_format['depth'], data_format['width'], data_format['height']
         self.shape = [d, h, w]
         self.VD = nn.ModuleDict({
-            'GN': nn.GroupNorm(8, in_ch),
+            # 'GN': nn.GroupNorm(8, in_ch),
             'conv': nn.Conv3d(in_ch, 16, kernel_size=kernel_size, stride=2, padding=kernel_size // 2),
+            'drop': nn.Dropout3d(p=0.1),
             'dense': nn.Linear(16 * (d // 16) * (w // 16) * (h // 16), in_ch)
         })
         self.VDrew = nn.ModuleDict({
@@ -199,9 +206,11 @@ class VAE(nn.Module):
 
     def forward(self, x):
         # VD Block (Reducing dimensionality of the data)
-        x = self.VD['GN'](x)
-        x = F.leaky_relu(x)
+        # x = self.VD['GN'](x)
+        # x = F.leaky_relu(x)
         x = self.VD['conv'](x)
+        x = self.VD['drop'](x)
+        x = F.leaky_relu(x)
         x = x.view(x.shape[0], -1)
         x = self.VD['dense'](x)
 
