@@ -3,10 +3,15 @@ from abc import ABC, abstractmethod
 import numpy as np
 import torch
 from torch import nn
+from torch.utils.tensorboard import SummaryWriter
+from torchsummary import summary
 
 from .batch_samplers import BatchSamplerHub
 from .utils import summarize_logs
 from .loss_functions import loss_function_hub
+
+# default `log_dir` is "runs" - we'll be more specific here
+writer = SummaryWriter('runs/VAE')
 
 
 class ModelBase(ABC):
@@ -143,6 +148,8 @@ class PytorchModelBase(ModelBase, nn.Module):
                 if self.use_vae:
                     batch_pred, batch_vae, vae_mean, vae_var = self.forward(batch_pred)
                     vae_loss, _ = self.vae_loss_fn(batch_vae, batch_data, vae_mean, vae_var)
+                else:
+                    batch_pred = self.forward(batch_pred)
                 batch_pred = self.tails[0](batch_pred)
                 loss, _ = self.loss_fn(batch_pred, batch_label)
                 if self.use_vae:
@@ -160,13 +167,21 @@ class PytorchModelBase(ModelBase, nn.Module):
                 test_data, training=False, **kwargs
             )
             preds = []
+            # summary(self, (32, 80, 144, 144))
             for batch_data in batch_data_list:
                 batch_pred = self.forward_head(batch_data, 0)
-                batch_pred, _, _, _ = self.forward(batch_pred)
+                # writer.add_graph(self, batch_pred)
+                # writer.close()
+                # with torch.autograd.profiler.profile(use_cuda=True) as prof:
+                if self.use_vae:
+                    batch_pred, _, _, _ = self.forward(batch_pred)
+                else:
+                    batch_pred = self.forward(batch_pred)
                 batch_pred = torch.sigmoid(
                     self.tails[0](batch_pred)
                 ).cpu().data.numpy()
                 preds.append(batch_pred)
+            # print(prof.key_averages().table(sort_by="cuda_time_total"))
 
         return self.batch_sampler.reassemble(preds, test_data)
 

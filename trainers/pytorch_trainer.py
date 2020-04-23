@@ -61,6 +61,9 @@ class PytorchTrainer(TrainerBase, ABC):
             self.model.to(device_id)
             torch.backends.cudnn.benchmark = True
         print(f'Total parameters: {self.count_parameters()}')
+        # for n, p in self.model.named_parameters():
+        #     if p.requires_grad:
+        #         print(n, p.numel())
         if checkpoint_dir is not None:
             self.load(checkpoint_dir)
 
@@ -71,6 +74,7 @@ class PytorchTrainer(TrainerBase, ABC):
         self.best_score = None
         self.early_stop = False
         self.val_loss_min = np.Inf
+        # print(self.model)
 
 
     def count_parameters(self):
@@ -224,6 +228,41 @@ class PytorchTrainer(TrainerBase, ABC):
 
         print(f'predicting on {len(data_generator)} volumes...')
         for _ in tqdm(range(len(data_generator))):
+            batch_data = data_generator(batch_size=1)
+            label, data_id = batch_data['label'], batch_data['data_ids'][0]
+            pred = self.model.predict(batch_data, **kwargs)
+
+            metrics = metric(pred, label).all_metrics(verbose=False)
+            metrics_dict[data_id] = metrics
+
+            self._save_volume_prediction(pred, batch_data, save_volume)
+
+        self._save_metric_predictions(metrics_dict, save_base_dir)
+        print(f'prediction result saved to {save_base_dir}')
+        return metrics_dict
+    
+    def profiling(
+            self,
+            data_generator,
+            save_base_dir,
+            metric,
+            save_volume: str,
+            **kwargs,
+    ):
+        if not os.path.exists(save_base_dir):
+            os.mkdir(save_base_dir)
+
+        self.prob_prediction_path = os.path.join(save_base_dir, f'prob_predict')
+        self.hard_prediction_path = os.path.join(save_base_dir, f'hard_predict')
+        if 'soft' in save_volume and not os.path.exists(self.prob_prediction_path):
+            os.mkdir(self.prob_prediction_path)
+        if 'hard' in save_volume and not os.path.exists(self.hard_prediction_path):
+            os.mkdir(self.hard_prediction_path)
+
+        metrics_dict = {}
+
+        print(f'predicting on {len(data_generator)} volumes...')
+        for _ in tqdm(range(1)):
             batch_data = data_generator(batch_size=1)
             label, data_id = batch_data['label'], batch_data['data_ids'][0]
             pred = self.model.predict(batch_data, **kwargs)

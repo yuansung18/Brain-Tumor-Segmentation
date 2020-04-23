@@ -73,7 +73,7 @@ class B3D_VAE(PytorchModelBase):
         return nn.ModuleList([
             nn.Sequential(
                 nn.Conv3d(input_channel, output_channel, kernel_size=1),
-                nn.Dropout3d(p=0.2),
+                nn.Dropout3d(p=0.1),
                 Green_block(output_channel, output_channel, self.kernel_size)
             )
             for input_channel in input_channels
