@@ -84,8 +84,27 @@ def my_soft_dice_score(logits: torch.Tensor, onehot_tar: np.array):
     return dice_score, {'soft_dice': dice_score.item()}
 
 
+def sigmoid_soft_dice_score(logits: torch.Tensor, onehot_tar: np.array):
+    pred = torch.sigmoid(logits)
+    if not pred.shape == onehot_tar.shape:
+        raise ValueError(f'Shape mismatch in pred and tar, got {pred.shape} and {onehot_tar.shape}')
+    onehot_tar = get_tensor_from_array(onehot_tar)
+
+    m1 = pred.view(pred.shape[0], pred.shape[1], -1)
+    m2 = onehot_tar.view(onehot_tar.shape[0], onehot_tar.shape[1], -1)
+    intersection = m1 * m2
+
+    m1 = torch.sum(m1 ** 2)
+    m2 = torch.sum(m2 ** 2)
+    intersection = torch.sum(intersection)
+
+    dice_score = torch.mean((2. * intersection + epsilon) / (m1 + m2 + epsilon))
+    return dice_score, {'soft_dice': dice_score.item()}
+
+
 dice_score_hub = {
     'naive': naive_soft_dice_score,
     'generalized': generalized_soft_dice_score,
     'my': my_soft_dice_score,
+    'sigmoid': sigmoid_soft_dice_score,
 }

@@ -29,53 +29,54 @@ class PytorchModelBase(ModelBase, nn.Module):
             forward_outcome_channels: int,
             head_outcome_channels: int,
             auxiliary_data_formats: list,
+            use_vae: bool = False,
             loss_function_id: str = 'crossentropy',
+            vae_loss_function_id: str = 'l2+kl',
             clip_grad: float = 0.,
             optim_batch_steps: int = 1,
+
     ):
         nn.Module.__init__(self)
         self.loss_fn = loss_function_hub[loss_function_id]
+        if use_vae:
+            self.vae_loss_fn = loss_function_hub[vae_loss_function_id]
+
         self.batch_sampler_constructor = BatchSamplerHub[batch_sampler_id]
-        self.batch_sampler = self.batch_sampler_constructor(
-            data_format=data_format
-        )
+        self.batch_sampler = self.batch_sampler_constructor(data_format=data_format)
         self.clip_grad = clip_grad
         self.batch_step_num = 0  # keeps count of how many batches processed
         self.optim_batch_steps = optim_batch_steps  # optimizer steps after this many steps
+        self.use_vae = use_vae
 
         all_data_formats = [data_format] + auxiliary_data_formats
-        data_channels = [
-            _data_format['channels']
-            for _data_format in all_data_formats
-        ]
-        class_nums = [
-            _data_format['class_num']
-            for _data_format in all_data_formats
-        ]
-        self.heads = self.build_heads(
-            input_channels=data_channels,
-            output_channel=head_outcome_channels,
-        )
-        self.tails = self.build_tails(
-            input_channels=forward_outcome_channels,
-            class_nums=class_nums,
-        )
+        # data_channels = [
+        #     _data_format['channels']
+        #     for _data_format in all_data_formats
+        # ]
+        # class_nums = [
+        #     _data_format['class_num']
+        #     for _data_format in all_data_formats
+        # ]
+        # self.heads = self.build_heads(
+        #     input_channels=data_channels,
+        #     output_channel=head_outcome_channels,
+        # )
+        # self.tails = self.build_tails(
+        #     input_channels=forward_outcome_channels,
+        #     class_nums=class_nums,
+        # )
+        # if torch.cuda.device_count() > 1:
+        #     print(f'GPU count: {torch.cuda.device_count()}')
+        #     self = nn.DataParallel(self)
 
-    def fit_generator(
-            self,
-            training_data_generator,
-            aux_data_generators,
-            optimizer,
-            batch_size,
-            **kwargs,
-    ):
+    def fit_generator(self, training_data_generator, aux_data_generators, optimizer, batch_size, **kwargs):
         """
         fit on generator for one single volume
         """
         self.train()
         all_data_generators = [training_data_generator] + aux_data_generators
         all_data = [
-            data_generator(batch_size=1)
+            data_generator(batch_size=batch_size)
             for data_generator in all_data_generators
         ]
         # batch_size here stands for number of volumes
@@ -99,10 +100,20 @@ class PytorchModelBase(ModelBase, nn.Module):
         for idx in sample_batch_order:
             batch_data, batch_label, data_idx = \
                 batch_data_list[idx], batch_label_list[idx], data_idx_list[idx]
-            batch_pred = self.forward_head(batch_data, data_idx)
-            batch_pred = self.forward(batch_pred)
-            batch_pred = self.tails[data_idx](batch_pred)
-            loss, log = self.loss_fn(batch_pred, batch_label)
+            # print(batch_data.shape[:])
+            batch_pred = self.forward_head(batch_data)
+            if self.use_vae:
+                batch_pred, batch_vae, vae_mean, vae_var = self.forward(batch_pred)
+                vae_loss, _ = self.vae_loss_fn(batch_vae, batch_data, vae_mean, vae_var)
+            else:
+                batch_pred1, batch_pred, batch_pred_inter = self.forward(batch_pred)
+
+            loss1, _ = self.loss_fn(batch_pred1, batch_label)
+            loss2, log = self.loss_fn(batch_pred, batch_label)
+            loss3, _ = self.loss_fn(batch_pred_inter, batch_label)
+            loss = 0.5*loss1 + loss2 + 0.1*loss3
+            if self.use_vae:
+                loss += vae_loss
             loss /= self.optim_batch_steps
             logs[data_idx].append(log)
             loss.backward()
@@ -116,7 +127,32 @@ class PytorchModelBase(ModelBase, nn.Module):
                 self.zero_grad()
 
         logs = [summarize_logs(log) for log in logs]
-        return logs[0], logs[1:]
+        return logs[0], logs[1:], loss.item()
+
+    def validation_predict(self, valid_data, **kwargs):
+        """
+        currently only for main data, i.e. tail_id=0
+        """
+        self.eval()
+        with torch.no_grad():
+            batch_data_list, label_list = self.batch_sampler.convert_to_feedable(
+                valid_data, training=False, **kwargs
+            )
+            for batch_data, batch_label in zip(batch_data_list, label_list):
+                batch_pred = self.forward_head(batch_data)
+                if self.use_vae:
+                    batch_pred, batch_vae, vae_mean, vae_var = self.forward(batch_pred)
+                    vae_loss, _ = self.vae_loss_fn(batch_vae, batch_data, vae_mean, vae_var)
+                else:
+                    batch_pred1, batch_pred, batch_pred_inter = self.forward(batch_pred)
+                loss1, _ = self.loss_fn(batch_pred1, batch_label)
+                loss2, _ = self.loss_fn(batch_pred, batch_label)
+                loss3, _ = self.loss_fn(batch_pred_inter, batch_label)
+                loss = 0.5*loss1 + loss2 + 0.1*loss3
+                if self.use_vae:
+                    loss += vae_loss
+
+        return loss.item()
 
     def predict(self, test_data, **kwargs):
         """
@@ -127,23 +163,17 @@ class PytorchModelBase(ModelBase, nn.Module):
             batch_data_list, _ = self.batch_sampler.convert_to_feedable(
                 test_data, training=False, **kwargs
             )
-            preds = [
-                nn.functional.softmax(
-                    self.tails[0](self.forward(self.forward_head(batch_data, 0))),
-                    dim=1
-                ).cpu().data.numpy()
-                for batch_data in batch_data_list
-            ]
+            preds = []
+            # with torch.autograd.profiler.profile(use_cuda=True) as prof:
+            for batch_data in batch_data_list:
+                batch_pred = self.forward_head(batch_data)
+                _, batch_pred, _ = self.forward(batch_pred)
+                batch_pred = torch.sigmoid(batch_pred).cpu().data.numpy()
+                preds.append(batch_pred)
+            # print(prof)
+
         return self.batch_sampler.reassemble(preds, test_data)
 
     @abstractmethod
     def forward_head(self, inp, data_idx: int):
-        pass
-
-    @abstractmethod
-    def build_heads(self, input_channels: list, output_channel: int):
-        pass
-
-    @abstractmethod
-    def build_tails(self, input_channels: int, class_nums: list):
         pass

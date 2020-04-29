@@ -18,6 +18,7 @@ load_dotenv('./.env')
 
 def flow(
         data_provider,
+        data_id,
         trainer,
         args,
         fit_hyper_parameters=None,
@@ -32,7 +33,7 @@ def flow(
     get_data_generator_fn = get_data_generator_fns[args.predict_mode]
     all_metric_dict = trainer.predict_on_generator(
         data_generator=get_data_generator_fn(random=False),
-        save_base_dir=os.path.join(args.checkpoint_dir, f'{args.data_provider_id}'),
+        save_base_dir=os.path.join(args.checkpoint_dir, f'{data_id}'),
         metric=data_provider.metric,
         save_volume=args.save_volume,
         **fit_hyper_parameters,
@@ -63,6 +64,8 @@ def categorize_by_diagnosis(all_metric_dict, data_generator) -> dict:
 
 
 if __name__ == '__main__':
+    device_id = 0
+
     exp_id = os.path.basename(os.path.normpath(args.checkpoint_dir))
     model_id, data_id, time_stamp = parse_exp_id(exp_id)
     print(f'model_id: {model_id}',
@@ -72,7 +75,7 @@ if __name__ == '__main__':
     os.environ['EXP_ID'] = exp_id
 
     data_provider_hub = DataProviderHub()
-    get_data_provider, data_provider_parameters = data_provider_hub[args.data_provider_id]
+    get_data_provider, data_provider_parameters = data_provider_hub[data_id]
     data_provider = get_data_provider(data_provider_parameters)
 
     auxiliary_data_providers = []
@@ -88,8 +91,9 @@ if __name__ == '__main__':
         data_format=data_provider.data_format,
         auxiliary_data_formats=auxiliary_data_formats,
     )
-
+    
     trainer = PytorchTrainer(
+        device_id=device_id,
         model=model,
         checkpoint_dir=args.checkpoint_dir,
         dataset_size=len(data_provider),
@@ -97,6 +101,7 @@ if __name__ == '__main__':
 
     flow(
         data_provider=data_provider,
+        data_id=data_id,
         trainer=trainer,
         args=args,
         fit_hyper_parameters=fit_hyper_parameters,

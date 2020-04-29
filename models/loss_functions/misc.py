@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 from torch import nn
 import numpy as np
 
@@ -28,7 +29,20 @@ def weighted_cross_entropy(logits: torch.Tensor, target: np.array):
 
 
 def minus_dice(logits: torch.Tensor, tar: np.array, dice_type: str = 'my'):
-    onehot_tar = to_one_hot_label(tar, class_num=logits.shape[1])
+    if not dice_type == 'sigmoid':
+        onehot_tar = to_one_hot_label(tar, class_num=logits.shape[1])
+    else:
+        onehot_tar = np.expand_dims(tar, axis=1)
     dice_fn = dice_score_hub[dice_type]
     dice_score, log = dice_fn(logits, onehot_tar)
-    return -dice_score, log
+    return 1-dice_score, log
+
+
+def l2_plus_kl(logits: torch.Tensor, target: np.array, mean, var, weight_L2: float = 0.1, weight_KL: float = 0.1):
+    total_node = logits.view(logits.shape[0], -1).shape[-1]
+    target = get_tensor_from_array(target)
+
+    loss_L2 = torch.mean((logits - target) ** 2)
+    loss_KL = torch.sum(torch.exp(var) + mean ** 2 - 1. - var) / total_node
+    loss = weight_L2 * loss_L2 + weight_KL * loss_KL
+    return loss, {'L2_KL_loss': loss.item()}

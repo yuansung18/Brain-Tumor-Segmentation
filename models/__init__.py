@@ -3,12 +3,16 @@ from functools import partial
 from .toy_model import ToyModel
 from .u_net import UNet
 from .v_net import VNet
+from .r2u_net import R2UNet
+from .b3d_vae import B3D_VAE
+from .two_u_net import TWO_UNET
+from .two_v_net import TWO_VNET
 from .pspnet import PSPNet
 from .high_resolution_compact_network import HighResolutionCompactNetwork
 
 DEFAULT_TRAINING_PARAM = {
     'batch_size': 50,
-    'epoch_num': 1500 * 200,
+    'epoch_num': 100,
     'verbose_epoch_num': 0.2,
 }
 
@@ -31,13 +35,49 @@ ModelHub = {
             'batch_size': 25,
         },
     ),
+    'r2u_net': (
+        partial(
+            R2UNet,
+        ),
+        {
+            **DEFAULT_TRAINING_PARAM,
+            'batch_size': 1,
+        },
+    ),
+    'b3d_vae': (
+        partial(
+            B3D_VAE,
+        ),
+        {
+            **DEFAULT_TRAINING_PARAM,
+            'batch_size': 1,
+        },
+    ),
+    'two_u_net': (
+        partial(
+            TWO_UNET,
+        ),
+        {
+            **DEFAULT_TRAINING_PARAM,
+            'batch_size': 1,
+        },
+    ),
+    'two_v_net': (
+        partial(
+            TWO_VNET,
+        ),
+        {
+            **DEFAULT_TRAINING_PARAM,
+            'batch_size': 1,
+        },
+    ),
     'u_net': (
         partial(
             UNet,
         ),
         {
             **DEFAULT_TRAINING_PARAM,
-            'batch_size': 20,
+            'batch_size': 1,
         },
     ),
     'u_net_positional': (
@@ -131,11 +171,11 @@ ModelHub = {
     'v_net_center_patch': (
         partial(
             VNet,
-            batch_sampler_id='center_patch_96',
+            batch_sampler_id='center_patch_140',
         ),
         {
             **DEFAULT_TRAINING_PARAM,
-            'batch_size': 15,
+            'batch_size': 2,
         },
     ),
     'pspnet_2d_resnet34': (

@@ -97,9 +97,11 @@ def load_nii(file_path):
 class ImageProcessor():
     def __init__(
         self,
-        target_shape: [int] = (200, 200, 200),
+        zoom_shape: [int] = (128, 128, 128),
+        target_shape: [int] = (128, 128, 128),
     ):
         self.target_shape = target_shape
+        self.zoom_shape = zoom_shape
         self.all_standard_shapes = {}
         self.all_cropped_shapes = {}
         self.all_dims = {}
@@ -112,7 +114,9 @@ class ImageProcessor():
             label_obj, label = image_obj, np.zeros_like(image)
         mask_obj, mask = load_nii(mask_path)
         header = image_obj.header
-        zooms = header.get_zooms()
+        # zooms = header.get_zooms()
+        zooms = np.array(self.zoom_shape)/ np.array(image.shape)
+        # print(zooms)
 
         image, label, dims = crop_image_and_label_with_mask(image, label, mask)
         self.all_cropped_shapes[file_id] = image.shape

@@ -6,6 +6,12 @@ from utils import to_one_hot_label
 from utils import epsilon
 from models.loss_functions.utils import GetClassWeights
 
+def sigmoid(x):
+    return 1. / (1 + np.exp(-x))
+
+def sigmoid_hard_max(x):
+    categorical_x = x > 0.5
+    return categorical_x
 
 def hard_max(x):
     index_x = np.argmax(x, axis=1)
@@ -40,6 +46,15 @@ def cross_entropy(prob_pred, tar_ids):
     return ce
 
 
+def l2_norm(prob_pred, tar):
+    return np.mean((prob_pred - tar) ** 2)
+
+
+def kl_div(prob_pred, mean, var):
+    total_node = prob_pred.view(logits[0], -1).shape[-1]
+    return np.sum(np.exp(var) + mean ** 2 - 1. - var) / total_node
+
+
 def volumewise_mean_score(score_fn, pred_batch, tar_batch):
     return np.mean([score_fn(pred, tar) for pred, tar in zip(pred_batch, tar_batch)])
 
@@ -52,11 +67,11 @@ class MetricBase:
                 f"pred.shape should be equal to tar.shape, "
                 f"got pred = {pred.shape} and tar = {tar.shape}",
             )
-        if pred.shape[1] < 2:
-            raise ValueError(
-                f'pred.shape[1] (class_num) should be greater than 1, '
-                f'got class_num = {pred.shape[1]}'
-            )
+        # if pred.shape[1] < 2:
+        #     raise ValueError(
+        #         f'pred.shape[1] (class_num) should be greater than 1, '
+        #         f'got class_num = {pred.shape[1]}'
+        #     )
         if pred.ndim != 5:
             raise ValueError(
                 'Input shape of Metric-Class should be (N, C, D, H, W), '
@@ -77,11 +92,13 @@ class ClasswiseMetric(MetricBase):
     def __init__(self, pred, tar):
         self.class_num = pred.shape[1]  # class_num includes background
         self.tar_ids = tar
-        tar = to_one_hot_label(tar, self.class_num)
+        # tar = to_one_hot_label(tar, self.class_num)
+        tar = np.expand_dims(tar, axis=1)
         super().__init__(pred, tar)
 
         self.prob_pred = pred
-        self.pred = hard_max(pred)
+        self.pred = sigmoid_hard_max(pred)
+        # self.pred = hard_max(pred)
         self.tar = tar
 
         self.metrics = {
@@ -93,16 +110,15 @@ class ClasswiseMetric(MetricBase):
 
         self.do_all_metrics = {
             **{
-                f'{metric_name}_class{i}': partial(
+                f'{metric_name}_class0': partial(
                     volumewise_mean_score,
                     score_fn=metric_fn,
-                    pred_batch=p[:, i],
-                    tar_batch=self.tar[:, i],
+                    pred_batch=p,
+                    tar_batch=self.tar,
                 )
                 for metric_name, (metric_fn, p) in self.metrics.items()
-                for i in range(1, self.class_num)
             },
-            'crossentropy': partial(cross_entropy, self.prob_pred, self.tar_ids),
+            # 'crossentropy': partial(cross_entropy, self.prob_pred, self.tar_ids),
         }
 
     def all_metrics(self, verbose=True):
@@ -112,7 +128,7 @@ class ClasswiseMetric(MetricBase):
         for metric_name, score in results.items():
             for prefix in self.metrics.keys():
                 if metric_name.startswith(prefix):
-                    accum_scores[prefix] += score / (self.class_num - 1)  # minus 1 for background
+                    accum_scores[prefix] += score / (self.class_num)  # minus 1 for background
                     break
 
         new_results = {
@@ -164,7 +180,6 @@ class BRATSMetric(MetricBase):
 
 
 class StructSegHaNMetric(MetricBase):
-
     class_weights = {
         'left eye': 100,
         'right eye': 100,

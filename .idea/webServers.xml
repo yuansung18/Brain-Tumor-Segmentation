@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="21d43316-b536-4d4f-bf74-d149132b7fea" name="ML2" url="http://140.113.225.164">
+        <fileTransfer host="140.113.225.164" port="1994" rootFolder="/home/yuanbear18" accessType="SFTP">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+          <option name="port" value="1994" />
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>

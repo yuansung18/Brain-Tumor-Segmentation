@@ -3,6 +3,7 @@ from .brats2015 import Brats2015DataProvider
 from .structseg import StructSeg2019DataProvider
 from .tcia_ct import TciaCtDataProvider
 from .ntu_ct import NtuCtDataProvider
+from .brain_ct import BrainDataProvider
 
 
 class DataProviderHub:
@@ -14,6 +15,7 @@ class DataProviderHub:
             'struct': StructSeg2019DataProvider,
             'tciact': TciaCtDataProvider,
             'ntuct': NtuCtDataProvider,
+            'brain': BrainDataProvider
         }
 
     def __getitem__(self, key):
